@@ -55,20 +55,26 @@ export async function POST(req: Request) {
     const { db } = await connectToDatabase();
     
     // Create document record
-    const result = await db.collection('documents').insertOne({
+    const newDocument = {
       title: validatedData.title,
       description: validatedData.description,
       file: fileData,
-      userId: session.user.id,
+      userId: session.user.id || session.user.email, // Fallback to email if id is not available
       createdAt: new Date(),
       updatedAt: new Date(),
       status: 'draft',
-    });
+    };
+
+    const result = await db.collection('documents').insertOne(newDocument);
     
+    // Return the created document with string ID
     return NextResponse.json(
       { 
         message: 'Document created successfully',
-        documentId: result.insertedId.toString()
+        document: {
+          ...newDocument,
+          _id: result.insertedId.toString(),
+        }
       },
       { status: 201 }
     );
@@ -107,7 +113,7 @@ export async function GET(req: Request) {
     
     // Get documents for the current user
     const documents = await db.collection('documents')
-      .find({ userId: session.user.id })
+      .find({ userId: session.user.id || session.user.email }) // Fallback to email if id is not available
       .sort({ createdAt: -1 })
       .toArray();
     

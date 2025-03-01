@@ -61,7 +61,7 @@ export default function Profile() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/auth/signin');
+      router.push('/login');
     } else if (status === 'authenticated') {
       setLoading(false);
     }

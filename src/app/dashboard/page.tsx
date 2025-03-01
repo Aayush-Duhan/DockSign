@@ -1,83 +1,119 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { FileText, User, Clock, FileSignature } from "lucide-react"
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/signin');
-    } else if (status === 'authenticated') {
-      setLoading(false);
-    }
-  }, [status, router]);
+  if (status === 'unauthenticated') {
+    router.push('/login');
+    return null;
+  }
 
-  const handleLogout = async () => {
-    await signOut({ redirect: true, callbackUrl: '/auth/signin' });
-  };
-
-  if (loading) {
+  if (status === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-r from-indigo-600 to-blue-500">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+      <div className="flex h-full items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-indigo-600 to-blue-500 text-white">
-      <div className="container mx-auto px-4 py-16">
-        <div className="max-w-3xl mx-auto bg-white/10 backdrop-blur-lg rounded-xl shadow-xl overflow-hidden">
-          <div className="p-8">
-            <div className="flex justify-between items-center mb-6">
-              <h1 className="text-4xl font-bold">Welcome, {session?.user?.name}!</h1>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-md transition-colors font-medium"
-              >
-                Logout
-              </button>
-            </div>
-            <p className="text-xl opacity-80 mb-8">{session?.user?.email}</p>
-            
-            <div className="bg-white/20 p-6 rounded-lg mb-8">
-              <h2 className="text-2xl font-semibold mb-4">Your Dashboard</h2>
-              <p className="mb-4">This is your personal dashboard where you can manage your documents and signatures.</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white/20 p-4 rounded-lg">
-                  <h3 className="text-xl font-medium mb-2">Documents</h3>
-                  <p>Manage and sign your documents</p>
-                  <button 
-                    onClick={() => router.push('/documents')}
-                    className="mt-4 px-4 py-2 bg-white text-indigo-600 rounded-md hover:bg-opacity-90 transition-colors font-medium"
-                  >
-                    View Documents
-                  </button>
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Documents
+            </CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">12</div>
+            <p className="text-xs text-muted-foreground">
+              +2 from last month
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Pending Signatures
+            </CardTitle>
+            <FileSignature className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">3</div>
+            <p className="text-xs text-muted-foreground">
+              Requires your attention
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+            <User className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">5</div>
+            <p className="text-xs text-muted-foreground">
+              Team members
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Recent Activity
+            </CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">24h</div>
+            <p className="text-xs text-muted-foreground">
+              Last document signed
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <Button onClick={() => router.push('/documents/create')} className="w-full">
+              New Document
+            </Button>
+            <Button onClick={() => router.push('/templates')} variant="outline" className="w-full">
+              View Templates
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Documents</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {['Contract.pdf', 'Agreement.pdf', 'NDA.pdf'].map((doc) => (
+                <div key={doc} className="flex items-center justify-between p-2 hover:bg-accent rounded-lg cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    <span>{doc}</span>
+                  </div>
+                  <Button variant="ghost" size="sm">View</Button>
                 </div>
-                <div className="bg-white/20 p-4 rounded-lg">
-                  <h3 className="text-xl font-medium mb-2">Profile</h3>
-                  <p>Update your personal information</p>
-                  <button 
-                    onClick={() => router.push('/profile')}
-                    className="mt-4 px-4 py-2 bg-white text-indigo-600 rounded-md hover:bg-opacity-90 transition-colors font-medium"
-                  >
-                    Edit Profile
-                  </button>
-                </div>
-              </div>
+              ))}
             </div>
-            
-            <div className="text-center">
-              <p className="text-sm opacity-70">You're now signed in to DocSign. Start managing your documents securely.</p>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

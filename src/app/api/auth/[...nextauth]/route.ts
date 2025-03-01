@@ -77,11 +77,15 @@ const handler = NextAuth({
       }
       return session;
     },
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith(baseUrl)) return url
+      else if (url.startsWith('/')) return new URL(url, baseUrl).toString()
+      return baseUrl
+    },
   },
   pages: {
-    signIn: '/auth/signin',
-    signOut: '/auth/signout',
-    error: '/auth/error',
+    signIn: '/login',
+    error: '/login',
   },
   secret: process.env.NEXTAUTH_SECRET,
 });

@@ -29,7 +29,7 @@ export default function DocumentDetail({ params }: { params: { id: string } }) {
 
   // Redirect to login if not authenticated
   if (status === 'unauthenticated') {
-    router.push('/auth/signin');
+    router.push('/login');
     return null;
   }
 
@@ -42,7 +42,8 @@ export default function DocumentDetail({ params }: { params: { id: string } }) {
           if (response.status === 404) {
             throw new Error('Document not found');
           }
-          throw new Error('Failed to fetch document');
+          const errorData = await response.text();
+          throw new Error(errorData || 'Failed to fetch document');
         }
         
         const data = await response.json();
