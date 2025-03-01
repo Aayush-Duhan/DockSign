@@ -4,55 +4,43 @@ import { getServerSession } from 'next-auth';
 import { ObjectId } from 'mongodb';
 
 // GET handler for retrieving a single document by ID
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
     // Check authentication
     const session = await getServerSession();
-    
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { message: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return new NextResponse('Unauthorized', { status: 401 });
     }
-    
-    // Validate document ID
-    if (!params.id || !ObjectId.isValid(params.id)) {
-      return NextResponse.json(
-        { message: 'Invalid document ID' },
-        { status: 400 }
-      );
-    }
-    
+
     // Connect to MongoDB
     const { db } = await connectToDatabase();
     
-    // Find document by ID and ensure it belongs to the current user
+    // Validate document ID
+    if (!ObjectId.isValid(params.id)) {
+      return new NextResponse('Invalid document ID format', { status: 400 });
+    }
+
+    // Find document
     const document = await db.collection('documents').findOne({
       _id: new ObjectId(params.id),
-      userId: session.user.id
+      userId: session.user.id || session.user.email, // Fallback to email if id is not available
     });
-    
+
     if (!document) {
-      return NextResponse.json(
-        { message: 'Document not found' },
-        { status: 404 }
-      );
+      return new NextResponse('Document not found', { status: 404 });
     }
-    
+
     // Transform ObjectId to string for JSON serialization
-    const serializedDocument = {
+    return NextResponse.json({
       ...document,
-      _id: document._id.toString(),
-    };
-    
-    return NextResponse.json(serializedDocument);
+      _id: document._id.toString()
+    });
   } catch (error) {
     console.error('Error fetching document:', error);
-    return NextResponse.json(
-      { message: 'Internal server error' },
-      { status: 500 }
-    );
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
 
@@ -72,7 +60,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     // Validate document ID
     if (!params.id || !ObjectId.isValid(params.id)) {
       return NextResponse.json(
-        { message: 'Invalid document ID' },
+        { message: 'Invalid document ID format' },
         { status: 400 }
       );
     }
@@ -83,7 +71,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     // Find document first to ensure it exists and belongs to the user
     const document = await db.collection('documents').findOne({
       _id: new ObjectId(params.id),
-      userId: session.user.id
+      userId: session.user.id || session.user.email
     });
     
     if (!document) {
@@ -96,7 +84,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     // Delete the document
     await db.collection('documents').deleteOne({
       _id: new ObjectId(params.id),
-      userId: session.user.id
+      userId: session.user.id || session.user.email
     });
     
     // TODO: In a real implementation, we would also delete the file from storage
@@ -130,7 +118,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     // Validate document ID
     if (!params.id || !ObjectId.isValid(params.id)) {
       return NextResponse.json(
-        { message: 'Invalid document ID' },
+        { message: 'Invalid document ID format' },
         { status: 400 }
       );
     }
@@ -144,7 +132,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     // Find document first to ensure it exists and belongs to the user
     const document = await db.collection('documents').findOne({
       _id: new ObjectId(params.id),
-      userId: session.user.id
+      userId: session.user.id || session.user.email
     });
     
     if (!document) {
@@ -167,7 +155,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     
     // Update the document
     await db.collection('documents').updateOne(
-      { _id: new ObjectId(params.id), userId: session.user.id },
+      { _id: new ObjectId(params.id), userId: session.user.id || session.user.email },
       { $set: updateData }
     );
     

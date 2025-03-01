@@ -69,9 +69,11 @@ export default function CreateDocument() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to create document');
       }
+
+      const result = await response.json();
       
-      // Redirect to documents page after successful upload
-      router.push('/documents');
+      // Redirect to the newly created document
+      router.push(`/documents/${result.document._id}`);
     } catch (error: any) {
       console.error('Document creation error:', error);
       setError(error.message || 'An error occurred while creating the document');
