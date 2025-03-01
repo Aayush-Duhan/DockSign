@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { signIn } from "next-auth/react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -19,31 +20,54 @@ export function SignUpForm({
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match")
-      setIsLoading(false)
-      return
-    }
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      router.push("/login")
-      router.refresh()
+      // Register the user
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to create account');
+      }
+
+      // After successful registration, sign in the user
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        throw new Error('Failed to sign in after registration');
+      }
+
+      // Redirect to dashboard
+      await router.push('/dashboard');
+      router.refresh();
     } catch (error) {
-      setError("An error occurred. Please try again.")
+      console.error('Registration error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to create account');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
@@ -66,10 +90,10 @@ export function SignUpForm({
                   transition={{ delay: 0.2, duration: 0.5 }}
                   className="text-3xl font-bold text-white tracking-tight"
                 >
-                  Create account
+                  Create an account
                 </motion.h1>
                 <p className="text-white/60 text-balance text-lg">
-                  Sign up for your DocSign account
+                  Sign up for DocSign to get started
                 </p>
               </div>
               {error && (
@@ -137,37 +161,8 @@ export function SignUpForm({
                     </Button>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword" className="text-white/70 text-sm font-medium">Confirm Password</Label>
-                  <div className="relative">
-                    <Input 
-                      id="confirmPassword" 
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                      className="bg-black/50 border-white/10 text-white h-11 transition-colors focus:border-white/20 pr-10" 
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-11 w-11 text-white/50 hover:text-white hover:bg-transparent"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                      <span className="sr-only">
-                        {showConfirmPassword ? "Hide password" : "Show password"}
-                      </span>
-                    </Button>
-                  </div>
-                </div>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <Button 
                   type="submit" 
                   className="w-full bg-white text-black hover:bg-white/90 h-11 font-medium transition-colors"
@@ -187,9 +182,10 @@ export function SignUpForm({
                       <span>Creating account...</span>
                     </motion.div>
                   ) : (
-                    "Sign up"
+                    "Create Account"
                   )}
                 </Button>
+
                 <div className="text-center text-sm text-white/60">
                   Already have an account?{" "}
                   <Link href="/login" className="text-white underline underline-offset-4 hover:text-white/90 font-medium transition-colors">
