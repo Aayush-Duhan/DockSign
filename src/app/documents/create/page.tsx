@@ -6,6 +6,26 @@ import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { motion } from "framer-motion"
+import { ArrowLeft, Upload, FileText, AlertCircle } from "lucide-react"
 
 const documentSchema = z.object({
   title: z.string().min(2, 'Title must be at least 2 characters'),
@@ -24,23 +44,19 @@ export default function CreateDocument() {
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
 
-  // Redirect to login if not authenticated
-  if (status === 'unauthenticated') {
-    router.push('/login');
-    return null;
-  }
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<DocumentFormValues>({
+  const form = useForm<DocumentFormValues>({
     resolver: zodResolver(documentSchema),
     defaultValues: {
       title: '',
       description: '',
     },
   });
+
+  // Redirect to login if not authenticated
+  if (status === 'unauthenticated') {
+    router.replace('/login');
+    return null;
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -53,13 +69,11 @@ export default function CreateDocument() {
     setError(null);
 
     try {
-      // Create FormData for file upload
       const formData = new FormData();
       formData.append('title', data.title);
       if (data.description) formData.append('description', data.description);
       if (data.file[0]) formData.append('file', data.file[0]);
 
-      // Send the form data to our API endpoint
       const response = await fetch('/api/documents', {
         method: 'POST',
         body: formData,
@@ -71,8 +85,6 @@ export default function CreateDocument() {
       }
 
       const result = await response.json();
-      
-      // Redirect to the newly created document
       router.push(`/documents/${result.document._id}`);
     } catch (error: any) {
       console.error('Document creation error:', error);
@@ -83,110 +95,153 @@ export default function CreateDocument() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center mb-8">
-          <button
-            onClick={() => router.back()}
-            className="mr-4 text-gray-600 hover:text-gray-900"
-          >
-            ← Back
-          </button>
-          <h1 className="text-3xl font-bold">Create New Document</h1>
-        </div>
-
-        <form className="bg-white shadow-md rounded-lg p-6" onSubmit={handleSubmit(onSubmit)}>
-          {error && (
-            <div className="mb-6 rounded-md bg-red-50 p-4">
-              <div className="flex">
-                <div className="text-sm text-red-700">{error}</div>
-              </div>
-            </div>
-          )}
-
-          <div className="mb-6">
-            <label htmlFor="title" className="block text-sm font-medium mb-1">
-              Document Title <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="title"
-              type="text"
-              {...register('title')}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            />
-            {errors.title && (
-              <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
-            )}
-          </div>
-
-          <div className="mb-6">
-            <label htmlFor="description" className="block text-sm font-medium mb-1">
-              Description
-            </label>
-            <textarea
-              id="description"
-              rows={3}
-              {...register('description')}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div className="mb-6">
-            <label htmlFor="file" className="block text-sm font-medium mb-1">
-              Upload Document <span className="text-red-500">*</span>
-            </label>
-            <div className="mt-1 flex items-center">
-              <label className="w-full flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md cursor-pointer hover:border-indigo-500">
-                <div className="space-y-1 text-center">
-                  <svg
-                    className="mx-auto h-12 w-12 text-gray-400"
-                    stroke="currentColor"
-                    fill="none"
-                    viewBox="0 0 48 48"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <div className="flex text-sm text-gray-600">
-                    <span className="relative rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
-                      Upload a file
-                    </span>
-                    <input
-                      id="file"
-                      type="file"
-                      className="sr-only"
-                      {...register('file')}
-                      onChange={handleFileChange}
-                    />
-                    <p className="pl-1">or drag and drop</p>
-                  </div>
-                  <p className="text-xs text-gray-500">PDF, DOC, DOCX up to 10MB</p>
-                  {fileName && (
-                    <p className="text-sm text-indigo-600 font-medium mt-2">{fileName}</p>
-                  )}
-                </div>
-              </label>
-            </div>
-            {errors.file && (
-              <p className="mt-1 text-sm text-red-600">{errors.file.message}</p>
-            )}
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+    <div className="flex min-h-screen items-start justify-center bg-background">
+      <div className="container max-w-2xl py-10 px-4">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="flex items-center gap-4 mb-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.back()}
+              className="rounded-full hover:bg-background/80"
             >
-              {isLoading ? 'Creating...' : 'Create Document'}
-            </button>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Create Document</h1>
+              <p className="text-muted-foreground mt-1">
+                Upload a document for digital signatures
+              </p>
+            </div>
           </div>
-        </form>
+
+          <Card className="shadow-lg">
+            <CardContent className="pt-6">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="rounded-lg bg-destructive/10 p-4 text-destructive flex items-start gap-2"
+                    >
+                      <AlertCircle className="h-5 w-5" />
+                      <p>{error}</p>
+                    </motion.div>
+                  )}
+
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Document Title</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter document title" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Add a description for your document"
+                            className="resize-none"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="file"
+                    render={({ field: { onChange, ...field } }) => (
+                      <FormItem>
+                        <FormLabel>Upload Document</FormLabel>
+                        <FormControl>
+                          <div className="flex flex-col items-center justify-center w-full">
+                            <label
+                              htmlFor="dropzone-file"
+                              className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-background/50 hover:bg-background/80 border-input"
+                            >
+                              <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
+                                {fileName ? (
+                                  <>
+                                    <FileText className="h-10 w-10 text-primary mb-2" />
+                                    <p className="text-sm text-muted-foreground">
+                                      Selected file:
+                                    </p>
+                                    <p className="text-sm font-medium text-foreground mt-1">
+                                      {fileName}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="h-10 w-10 text-muted-foreground mb-2" />
+                                    <p className="mb-2 text-sm text-muted-foreground">
+                                      <span className="font-semibold">Click to upload</span> or
+                                      drag and drop
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      PDF, DOC, DOCX (up to 10MB)
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                              <input
+                                id="dropzone-file"
+                                type="file"
+                                className="hidden"
+                                onChange={(e) => {
+                                  handleFileChange(e);
+                                  onChange(e.target.files);
+                                }}
+                                ref={field.ref}
+                                name={field.name}
+                              />
+                            </label>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={isLoading}>
+                      {isLoading ? (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="flex items-center gap-2"
+                        >
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          <span>Creating...</span>
+                        </motion.div>
+                      ) : (
+                        "Create Document"
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
     </div>
   );

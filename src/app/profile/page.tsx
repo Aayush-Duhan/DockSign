@@ -6,6 +6,26 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { ArrowLeft, User, Mail, KeyRound } from "lucide-react"
+import { motion } from "framer-motion"
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -14,22 +34,14 @@ const profileSchema = z.object({
   newPassword: z.string().optional(),
   confirmPassword: z.string().optional(),
 }).refine(data => {
-  // If any password field is filled, all password fields must be filled
-  const hasCurrentPassword = !!data.currentPassword;
-  const hasNewPassword = !!data.newPassword;
-  const hasConfirmPassword = !!data.confirmPassword;
-  
-  // If any password field is filled, all must be filled
-  if (hasCurrentPassword || hasNewPassword || hasConfirmPassword) {
-    return hasCurrentPassword && hasNewPassword && hasConfirmPassword;
+  if (data.currentPassword || data.newPassword || data.confirmPassword) {
+    return data.currentPassword && data.newPassword && data.confirmPassword;
   }
-  
   return true;
 }, {
   message: "All password fields are required to change password",
   path: ["newPassword"],
 }).refine(data => {
-  // If new password is provided, it must be at least 8 characters
   if (data.newPassword) {
     return data.newPassword.length >= 8;
   }
@@ -38,7 +50,6 @@ const profileSchema = z.object({
   message: "New password must be at least 8 characters",
   path: ["newPassword"],
 }).refine(data => {
-  // If both new password and confirm password are provided, they must match
   if (data.newPassword && data.confirmPassword) {
     return data.newPassword === data.confirmPassword;
   }
@@ -53,26 +64,12 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 export default function Profile() {
   const { data: session, status, update } = useSession();
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-    } else if (status === 'authenticated') {
-      setLoading(false);
-    }
-  }, [status, router]);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-  } = useForm<ProfileFormValues>({
+  const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       name: session?.user?.name || '',
@@ -83,10 +80,13 @@ export default function Profile() {
     },
   });
 
-  // Update form values when session data is available
+  // Redirect to login if not authenticated
   useEffect(() => {
-    if (session?.user) {
-      reset({
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    } else if (status === 'authenticated') {
+      setIsLoading(false);
+      form.reset({
         name: session.user.name || '',
         email: session.user.email || '',
         currentPassword: '',
@@ -94,7 +94,7 @@ export default function Profile() {
         confirmPassword: '',
       });
     }
-  }, [session, reset]);
+  }, [status, router, session, form]);
 
   const onSubmit = async (data: ProfileFormValues) => {
     setIsSubmitting(true);
@@ -102,19 +102,16 @@ export default function Profile() {
     setSuccess(null);
 
     try {
-      // Create the update payload
       const updateData: any = {
         name: data.name,
       };
 
-      // Only include password fields if the user is trying to change password
       if (data.currentPassword && data.newPassword && data.confirmPassword) {
         updateData.currentPassword = data.currentPassword;
         updateData.newPassword = data.newPassword;
         updateData.confirmPassword = data.confirmPassword;
       }
 
-      // Send the update request to the API
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: {
@@ -128,7 +125,6 @@ export default function Profile() {
         throw new Error(errorData.message || 'Failed to update profile');
       }
 
-      // Update the session with the new user data
       await update({
         ...session,
         user: {
@@ -139,8 +135,7 @@ export default function Profile() {
 
       setSuccess('Profile updated successfully');
       
-      // Clear password fields
-      reset({
+      form.reset({
         ...data,
         currentPassword: '',
         newPassword: '',
@@ -154,144 +149,224 @@ export default function Profile() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-r from-indigo-600 to-blue-500">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-indigo-600 to-blue-500 text-white">
-      <div className="container mx-auto px-4 py-16">
-        <div className="max-w-3xl mx-auto bg-white/10 backdrop-blur-lg rounded-xl shadow-xl overflow-hidden">
-          <div className="p-8">
-            <div className="flex items-center mb-8">
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="mr-4 text-white hover:text-gray-200"
-              >
-                ← Back to Dashboard
-              </button>
-              <h1 className="text-3xl font-bold">Edit Profile</h1>
-            </div>
-            
-            <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-              {error && (
-                <div className="rounded-md bg-red-500/30 p-4">
-                  <div className="flex">
-                    <div className="text-sm text-white">{error}</div>
+    <div className="flex min-h-screen items-start justify-center bg-background py-10">
+      <div className="container max-w-2xl px-4">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex items-center gap-4 mb-8"
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push('/dashboard')}
+            className="rounded-full hover:bg-background/80"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Profile Settings</h1>
+            <p className="text-muted-foreground mt-1">
+              Manage your account settings and preferences
+            </p>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <Card className="shadow-lg">
+                <CardHeader className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <User className="h-5 w-5 text-primary" />
+                    <CardTitle>Personal Information</CardTitle>
                   </div>
-                </div>
-              )}
-              
-              {success && (
-                <div className="rounded-md bg-green-500/30 p-4">
-                  <div className="flex">
-                    <div className="text-sm text-white">{success}</div>
-                  </div>
-                </div>
-              )}
-              
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium mb-1">
-                    Full Name
-                  </label>
-                  <input
-                    id="name"
-                    type="text"
-                    autoComplete="name"
-                    {...register('name')}
-                    className="relative block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                  />
-                  {errors.name && (
-                    <p className="mt-1 text-sm text-red-300">{errors.name.message}</p>
+                  <CardDescription>
+                    Update your personal information and email address
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="rounded-lg bg-destructive/10 p-4 text-destructive flex items-start gap-2"
+                    >
+                      <div className="rounded-full bg-destructive/20 p-1 mt-0.5">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="8" x2="12" y2="12" />
+                          <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                      </div>
+                      {error}
+                    </motion.div>
                   )}
-                </div>
-                
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium mb-1">
-                    Email Address
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    disabled
-                    {...register('email')}
-                    className="relative block w-full rounded-md border-0 py-2 px-3 text-gray-500 bg-gray-100 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 cursor-not-allowed"
-                  />
-                  <p className="mt-1 text-xs text-white/70">Email cannot be changed</p>
-                </div>
-              </div>
-              
-              <div className="border-t border-white/20 pt-6 mt-6">
-                <h2 className="text-xl font-semibold mb-4">Change Password</h2>
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="currentPassword" className="block text-sm font-medium mb-1">
-                      Current Password
-                    </label>
-                    <input
-                      id="currentPassword"
-                      type="password"
-                      autoComplete="current-password"
-                      {...register('currentPassword')}
-                      className="relative block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                  {success && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="rounded-lg bg-emerald-500/10 p-4 text-emerald-500 flex items-start gap-2"
+                    >
+                      <div className="rounded-full bg-emerald-500/20 p-1 mt-0.5">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M20 6L9 17l-5-5" />
+                        </svg>
+                      </div>
+                      {success}
+                    </motion.div>
+                  )}
+                  <div className="grid gap-6">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <User className="h-4 w-4" />
+                            Full Name
+                          </FormLabel>
+                          <FormControl>
+                            <Input {...field} className="shadow-sm" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                    {errors.currentPassword && (
-                      <p className="mt-1 text-sm text-red-300">{errors.currentPassword.message}</p>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="newPassword" className="block text-sm font-medium mb-1">
-                      New Password
-                    </label>
-                    <input
-                      id="newPassword"
-                      type="password"
-                      autoComplete="new-password"
-                      {...register('newPassword')}
-                      className="relative block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <Mail className="h-4 w-4" />
+                            Email
+                          </FormLabel>
+                          <FormControl>
+                            <Input {...field} disabled className="bg-muted" />
+                          </FormControl>
+                          <p className="text-sm text-muted-foreground">
+                            Email cannot be changed
+                          </p>
+                        </FormItem>
+                      )}
                     />
-                    {errors.newPassword && (
-                      <p className="mt-1 text-sm text-red-300">{errors.newPassword.message}</p>
-                    )}
                   </div>
-                  
-                  <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1">
-                      Confirm New Password
-                    </label>
-                    <input
-                      id="confirmPassword"
-                      type="password"
-                      autoComplete="new-password"
-                      {...register('confirmPassword')}
-                      className="relative block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-lg">
+                <CardHeader className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="h-5 w-5 text-primary" />
+                    <CardTitle>Change Password</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Update your password. Leave blank to keep your current password
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-6">
+                    <FormField
+                      control={form.control}
+                      name="currentPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Current Password</FormLabel>
+                          <FormControl>
+                            <Input type="password" {...field} className="shadow-sm" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                    {errors.confirmPassword && (
-                      <p className="mt-1 text-sm text-red-300">{errors.confirmPassword.message}</p>
-                    )}
+                    <FormField
+                      control={form.control}
+                      name="newPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>New Password</FormLabel>
+                          <FormControl>
+                            <Input type="password" {...field} className="shadow-sm" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="confirmPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Confirm New Password</FormLabel>
+                          <FormControl>
+                            <Input type="password" {...field} className="shadow-sm" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                </div>
-              </div>
-              
+                </CardContent>
+              </Card>
+
               <div className="flex justify-end">
-                <button
+                <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-white text-indigo-600 rounded-md hover:bg-opacity-90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="min-w-[140px] shadow-lg"
                 >
-                  {isSubmitting ? 'Saving...' : 'Save Changes'}
-                </button>
+                  {isSubmitting ? (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex items-center gap-2"
+                    >
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      <span>Saving...</span>
+                    </motion.div>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
+          </Form>
+        </motion.div>
       </div>
     </div>
   );

@@ -17,19 +17,19 @@ export function MainNav({
         Overview
       </Link>
       <Link
-        href="/dashboard/documents"
+        href="/documents"
         className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
       >
         Documents
       </Link>
       <Link
-        href="/dashboard/templates"
+        href="/templates"
         className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
       >
         Templates
       </Link>
       <Link
-        href="/dashboard/settings"
+        href="/settings"
         className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
       >
         Settings
