@@ -26,7 +26,7 @@ export default function CreateDocument() {
 
   // Redirect to login if not authenticated
   if (status === 'unauthenticated') {
-    router.push('/auth/signin');
+    router.push('/login');
     return null;
   }
 

@@ -12,14 +12,14 @@ export default function Dashboard() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/auth/signin');
+      router.push('/login');
     } else if (status === 'authenticated') {
       setLoading(false);
     }
   }, [status, router]);
 
   const handleLogout = async () => {
-    await signOut({ redirect: true, callbackUrl: '/auth/signin' });
+    await signOut({ redirect: true, callbackUrl: '/login' });
   };
 
   if (loading) {
