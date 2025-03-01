@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Valid email is required'),
+  email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
@@ -21,13 +21,13 @@ export async function POST(req: Request) {
     
     // Check if user already exists
     const existingUser = await db.collection('users').findOne({
-      email: validatedData.email
+      email: validatedData.email.toLowerCase(),
     });
     
     if (existingUser) {
       return NextResponse.json(
-        { message: 'User with this email already exists' },
-        { status: 400 }
+        { message: 'User already exists' },
+        { status: 409 }
       );
     }
     
@@ -37,26 +37,28 @@ export async function POST(req: Request) {
     // Create user
     const result = await db.collection('users').insertOne({
       name: validatedData.name,
-      email: validatedData.email,
+      email: validatedData.email.toLowerCase(),
       password: hashedPassword,
       role: 'user',
       createdAt: new Date(),
+      updatedAt: new Date(),
     });
     
     return NextResponse.json(
-      { message: 'User registered successfully' },
+      {
+        message: 'User created successfully',
+        userId: result.insertedId,
+      },
       { status: 201 }
     );
   } catch (error) {
     console.error('Registration error:', error);
-    
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { message: 'Invalid input data', errors: error.errors },
+        { message: error.errors[0].message },
         { status: 400 }
       );
     }
-    
     return NextResponse.json(
       { message: 'Internal server error' },
       { status: 500 }
