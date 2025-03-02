@@ -2,6 +2,7 @@
 
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { FileText, User, Clock, FileSignature } from "lucide-react"
@@ -10,8 +11,13 @@ export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
+  
   if (status === 'unauthenticated') {
-    router.push('/login');
     return null;
   }
 
