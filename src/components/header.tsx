@@ -8,8 +8,8 @@ import { usePathname } from "next/navigation"
 export function Header() {
   const pathname = usePathname()
   
-  // Don't show header on auth pages
-  if (pathname === '/login' || pathname === '/signup' || pathname === '/register') {
+  // Don't show header on auth pages and landing page
+  if (pathname === '/' || pathname === '/login' || pathname === '/signup' || pathname === '/register') {
     return null
   }
 
