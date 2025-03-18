@@ -3,156 +3,435 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { motion } from "framer-motion";
+import { 
+  ArrowLeft, 
+  Loader2, 
+  FileText, 
+  Edit, 
+  Download, 
+  Share, 
+  Calendar, 
+  Clock, 
+  User,
+  CheckCircle,
+  AlertCircle,
+  Copy,
+  CheckCheck
+} from "lucide-react";
+import { formatDistanceToNow, format } from 'date-fns';
+import { useToast } from "@/components/ui/use-toast";
 
-type Document = {
+interface DocumentField {
+  id: string;
+  type: string;
+  label: string;
+  placeholder?: string;
+  required: boolean;
+  position: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    page: number;
+  };
+  config?: {
+    options?: { label: string; value: string }[];
+  };
+}
+
+interface Document {
   _id: string;
   title: string;
   description?: string;
-  file: {
-    name: string;
-    type: string;
-    size: number;
-    url: string;
-  };
+  fields: DocumentField[];
+  content: Record<string, any>;
   status: string;
+  createdBy: string;
   createdAt: string;
   updatedAt: string;
-};
+  derivedFromTemplate?: {
+    templateId: string;
+  } | null;
+}
+
+function getStatusColor(status: string): string {
+  switch(status.toLowerCase()) {
+    case 'draft':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'pending':
+      return 'bg-blue-100 text-blue-800';
+    case 'submitted':
+      return 'bg-green-100 text-green-800';
+    case 'completed':
+      return 'bg-green-200 text-green-900';
+    case 'rejected':
+      return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+}
 
 export default function DocumentDetail({ params }: { params: { id: string } }) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { toast } = useToast();
   const [document, setDocument] = useState<Document | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Redirect to login if not authenticated
-  if (status === 'unauthenticated') {
-    router.push('/login');
-    return null;
-  }
+  const [activeTab, setActiveTab] = useState('details');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetchDocument = async () => {
-      try {
-        const response = await fetch(`/api/documents/${params.id}`);
-        
-        if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error('Document not found');
+      if (status === 'authenticated') {
+        try {
+          setLoading(true);
+          const response = await fetch(`/api/documents/${params.id}`);
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch document');
           }
-          const errorData = await response.text();
-          throw new Error(errorData || 'Failed to fetch document');
+          
+          const data = await response.json();
+          setDocument(data);
+          setError(null);
+        } catch (err) {
+          console.error('Error fetching document:', err);
+          setError('Failed to load document. Please try again.');
+        } finally {
+          setLoading(false);
         }
-        
-        const data = await response.json();
-        setDocument(data);
-      } catch (error) {
-        console.error('Error fetching document:', error);
-        setError(error instanceof Error ? error.message : 'Failed to load document');
-      } finally {
-        setIsLoading(false);
       }
     };
 
-    if (status === 'authenticated' && params.id) {
-      fetchDocument();
+    fetchDocument();
+  }, [params.id, status]);
+
+  if (status === 'unauthenticated') {
+    router.replace('/login');
+    return null;
+  }
+
+  if (status === 'loading' || loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <span className="ml-2">Loading document...</span>
+      </div>
+    );
+  }
+
+  if (error || !document) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Error</CardTitle>
+            <CardDescription>
+              {error || 'Document not found'}
+            </CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <Button onClick={() => router.push('/documents')}>
+              Back to Documents
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
+  const isEditable = document.status === 'draft';
+  
+  const handleDownload = () => {
+    window.open(`/api/documents/${params.id}/download`, '_blank');
+  };
+  
+  const handleShare = async () => {
+    const url = `${window.location.origin}/documents/${params.id}`;
+    
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast({
+        title: "Link copied!",
+        description: "Document link copied to clipboard",
+      });
+      
+      // Reset copied status after 2 seconds
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      toast({
+        title: "Copy failed",
+        description: "Could not copy link to clipboard",
+        variant: "destructive",
+      });
     }
-  }, [status, params.id]);
+  };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center mb-8">
-          <button
-            onClick={() => router.push('/documents')}
-            className="mr-4 text-gray-600 hover:text-gray-900"
-          >
-            ← Back to Documents
-          </button>
-        </div>
-
-        {isLoading ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-          </div>
-        ) : error ? (
-          <div className="bg-red-50 p-4 rounded-md">
-            <p className="text-red-700">{error}</p>
-          </div>
-        ) : document ? (
-          <div className="bg-white shadow-md rounded-lg overflow-hidden">
-            <div className="p-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{document.title}</h1>
-              {document.description && (
-                <p className="text-gray-600 mb-4">{document.description}</p>
-              )}
-              
-              <div className="border-t border-gray-200 pt-4 mt-4">
-                <h2 className="text-lg font-medium mb-2">Document Details</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">File Name</p>
-                    <p className="font-medium">{document.file.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">File Type</p>
-                    <p className="font-medium">{document.file.type}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">File Size</p>
-                    <p className="font-medium">{(document.file.size / 1024).toFixed(2)} KB</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Status</p>
-                    <p className="font-medium">
-                      <span className="px-2 py-1 text-xs rounded-full bg-gray-100">
-                        {document.status}
-                      </span>
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Created</p>
-                    <p className="font-medium">{new Date(document.createdAt).toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Last Updated</p>
-                    <p className="font-medium">{new Date(document.updatedAt).toLocaleString()}</p>
-                  </div>
+    <div className="flex min-h-screen items-start justify-center bg-background">
+      <div className="container max-w-5xl py-10 px-4">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push('/documents')}
+                className="rounded-full hover:bg-background/80"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-3xl font-bold tracking-tight">{document.title}</h1>
+                  <Badge className={getStatusColor(document.status)}>
+                    {document.status.charAt(0).toUpperCase() + document.status.slice(1)}
+                  </Badge>
                 </div>
-              </div>
-              
-              <div className="border-t border-gray-200 pt-4 mt-4">
-                <h2 className="text-lg font-medium mb-4">Actions</h2>
-                <div className="flex flex-wrap gap-3">
-                  <button 
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    onClick={() => alert('Document viewer will be implemented soon')}
-                  >
-                    View Document
-                  </button>
-                  <button 
-                    className="bg-white text-indigo-600 border border-indigo-600 px-4 py-2 rounded-md hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    onClick={() => alert('E-signature feature will be implemented soon')}
-                  >
-                    Sign Document
-                  </button>
-                  <button 
-                    className="bg-white text-gray-600 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-                    onClick={() => alert('Sharing feature will be implemented soon')}
-                  >
-                    Share Document
-                  </button>
-                </div>
+                {document.description && (
+                  <p className="text-muted-foreground mt-1">
+                    {document.description}
+                  </p>
+                )}
               </div>
             </div>
+            <div className="flex gap-2">
+              {isEditable && (
+                <Button
+                  variant="outline"
+                  onClick={() => router.push(`/documents/edit/${params.id}`)}
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
+              )}
+              <Button onClick={handleDownload}>
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </Button>
+            </div>
           </div>
-        ) : (
-          <div className="bg-yellow-50 p-4 rounded-md">
-            <p className="text-yellow-700">Document not found</p>
-          </div>
-        )}
+
+          {error && (
+            <div className="mb-6 p-4 bg-destructive/10 text-destructive rounded-lg flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 mt-0.5" />
+              <div>{error}</div>
+            </div>
+          )}
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="details">
+                <FileText className="h-4 w-4 mr-2" />
+                Details
+              </TabsTrigger>
+              <TabsTrigger value="fields">
+                <User className="h-4 w-4 mr-2" />
+                Fields
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="details" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Document Information</CardTitle>
+                  <CardDescription>
+                    Details about this document
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium text-muted-foreground">Created By</div>
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span>{document.createdBy}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium text-muted-foreground">Status</div>
+                      <Badge className={getStatusColor(document.status)}>
+                        {document.status.charAt(0).toUpperCase() + document.status.slice(1)}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium text-muted-foreground">Created On</div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>
+                          {format(new Date(document.createdAt), 'PPP')}
+                          {' '}
+                          <span className="text-muted-foreground">
+                            ({formatDistanceToNow(new Date(document.createdAt), { addSuffix: true })})
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium text-muted-foreground">Last Updated</div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span>
+                          {format(new Date(document.updatedAt), 'PPP')}
+                          {' '}
+                          <span className="text-muted-foreground">
+                            ({formatDistanceToNow(new Date(document.updatedAt), { addSuffix: true })})
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {(() => {
+                    const templateId = document.derivedFromTemplate?.templateId;
+                    return templateId ? (
+                      <div className="pt-4 mt-4 border-t">
+                        <div className="text-sm font-medium mb-2">Source Template</div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`/templates/${templateId}`)}
+                        >
+                          <FileText className="mr-2 h-4 w-4" />
+                          View Template
+                        </Button>
+                      </div>
+                    ) : null;
+                  })()}
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Document Actions</CardTitle>
+                  <CardDescription>
+                    Available actions for this document
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {isEditable ? (
+                      <>
+                        <Button 
+                          onClick={() => router.push(`/documents/edit/${params.id}`)}
+                          className="w-full"
+                        >
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit Document
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="p-4 rounded-md bg-muted">
+                        <p className="text-muted-foreground text-sm">
+                          This document has been submitted and can no longer be edited.
+                        </p>
+                      </div>
+                    )}
+                    <Button variant="outline" className="w-full" onClick={handleShare}>
+                      {copied ? (
+                        <>
+                          <CheckCheck className="mr-2 h-4 w-4 text-green-500" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Share className="mr-2 h-4 w-4" />
+                          Share Document
+                        </>
+                      )}
+                    </Button>
+                    <Button variant="outline" className="w-full" onClick={handleDownload}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Download Document
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="fields" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Document Fields</CardTitle>
+                  <CardDescription>
+                    View the form fields and their values
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {document.fields && document.fields.length > 0 ? (
+                    <div className="divide-y">
+                      {document.fields.map((field) => (
+                        <div key={field.id} className="py-4 first:pt-0 last:pb-0">
+                          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
+                            <div>
+                              <h4 className="font-medium">{field.label}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                {field.type.charAt(0).toUpperCase() + field.type.slice(1)} field
+                                {field.required && ' (Required)'}
+                              </p>
+                            </div>
+                            <div className="p-2 bg-muted/50 rounded border min-w-[200px]">
+                              {document.content[field.id] ? (
+                                field.type === 'signature' ? (
+                                  <div className="italic">Signed by {session?.user?.name}</div>
+                                ) : (
+                                  <div>{document.content[field.id]}</div>
+                                )
+                              ) : (
+                                <div className="text-muted-foreground text-sm italic">
+                                  No value provided
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      This document has no fields to display.
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter>
+                  {isEditable && (
+                    <Button 
+                      onClick={() => router.push(`/documents/edit/${params.id}`)}
+                      variant="outline"
+                    >
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Fields
+                    </Button>
+                  )}
+                </CardFooter>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </motion.div>
       </div>
     </div>
   );
